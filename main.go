@@ -19,8 +19,7 @@ type Game struct {
 	sprites []*Sprite
 }
 
-func (g *Game) Update() error {
-
+func movePlayer(g *Game) {
 	if ebiten.IsKeyPressed(ebiten.KeyRight) || ebiten.IsKeyPressed(ebiten.KeyD) {
 		g.player.X += 2
 	}
@@ -36,7 +35,10 @@ func (g *Game) Update() error {
 	if ebiten.IsKeyPressed(ebiten.KeyDown) || ebiten.IsKeyPressed(ebiten.KeyS) {
 		g.player.Y += 2
 	}
+}
 
+func (g *Game) Update() error {
+	movePlayer(g)
 	return nil
 }
 
@@ -53,18 +55,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		&opts,
 	)
 	opts.GeoM.Reset()
-
-	for _, sprite := range g.sprites {
-		opts.GeoM.Translate(sprite.X, sprite.Y)
-
-		screen.DrawImage(
-			sprite.Img.SubImage(
-				image.Rect(0, 0, 16, 16),
-			).(*ebiten.Image),
-			&opts,
-		)
-		opts.GeoM.Reset()
-	}
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
@@ -87,13 +77,6 @@ func main() {
 			X:   50.0,
 			Y:   50.0,
 		},
-		sprites: []*Sprite {
-			{
-				Img: playerImg,
-				X: 100.0,
-				Y: 100.0,
-			}
-		}
 	}
 
 	if err := ebiten.RunGame(&game); err != nil {
