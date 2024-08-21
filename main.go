@@ -15,13 +15,21 @@ type Sprite struct {
 	X, Y float64
 }
 
+type Vision struct {
+	CanSee     bool
+	BlinkEvery uint
+}
+
 type Player struct {
 	*Sprite
-	Health uint
+	*Vision
+	Velocity float64
+	Health   uint
 }
 
 type Enemy struct {
 	*Sprite
+	Velocity      float64
 	FollowsPlayer bool
 }
 
@@ -40,43 +48,48 @@ type Game struct {
 
 func movePlayer(g *Game) {
 	if ebiten.IsKeyPressed(ebiten.KeyRight) || ebiten.IsKeyPressed(ebiten.KeyD) {
-		g.player.X += 2
+		g.player.X += g.player.Velocity
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyLeft) || ebiten.IsKeyPressed(ebiten.KeyA) {
-		g.player.X -= 2
+		g.player.X -= g.player.Velocity
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyUp) || ebiten.IsKeyPressed(ebiten.KeyW) {
-		g.player.Y -= 2
+		g.player.Y -= g.player.Velocity
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyDown) || ebiten.IsKeyPressed(ebiten.KeyS) {
-		g.player.Y += 2
+		g.player.Y += g.player.Velocity
 	}
 }
 
 func followPlayer(g *Game) {
-	for _, sprite := range g.enemies {
-		if sprite.FollowsPlayer {
-			if sprite.X < g.player.X {
-				sprite.X += 0.5
-			} else if sprite.X > g.player.X {
-				sprite.X -= 0.5
+	for _, enemy := range g.enemies {
+		if enemy.FollowsPlayer {
+			if enemy.X < g.player.X {
+				enemy.X += enemy.Velocity
+			} else if enemy.X > g.player.X {
+				enemy.X -= enemy.Velocity
 			}
-			if sprite.Y < g.player.Y {
-				sprite.Y += 0.5
-			} else if sprite.Y > g.player.Y {
-				sprite.Y -= 0.5
+			if enemy.Y < g.player.Y {
+				enemy.Y += enemy.Velocity
+			} else if enemy.Y > g.player.Y {
+				enemy.Y -= enemy.Velocity
 			}
 		}
 	}
 }
 
+func updatePlayerVelocity(g *Game) {
+	g.player.Velocity += 0.02
+}
+
 func handlePotion(g *Game) {
 	for _, potion := range g.potions {
-		if g.player.X > potion.X {
+		if (g.player.X < potion.X+10 && g.player.X > potion.X-10) && (g.player.Y < potion.Y+10 && g.player.Y > potion.Y-10) {
 			g.player.Health += potion.HealAmount
+			updatePlayerVelocity(g)
 			fmt.Printf("Picked up potion! Health: %d\n", g.player.Health)
 		}
 	}
@@ -112,22 +125,31 @@ func showTiles(g *Game, opts ebiten.DrawImageOptions, screen *ebiten.Image) {
 	}
 }
 
+func darken() {
+
+}
+
 func (g *Game) Update() error {
 	movePlayer(g)
 	followPlayer(g)
 	handlePotion(g)
 	handleClick(g)
+	//darken(g)
 
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	screen.Fill(color.RGBA{55, 38, 35, 255})
-
 	opts := ebiten.DrawImageOptions{}
 
 	//showTiles(g, opts, screen)
+	showPlayer(g, opts, screen)
+	showPotions(g, opts, screen)
+	showEnemies(g, opts, screen)
+}
 
+func showPlayer(g *Game, opts ebiten.DrawImageOptions, screen *ebiten.Image) {
 	opts.GeoM.Translate(g.player.X, g.player.Y)
 
 	screen.DrawImage(
@@ -137,9 +159,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		&opts,
 	)
 	opts.GeoM.Reset()
-
-	showEnemies(g, opts, screen)
-	showPotions(g, opts, screen)
 }
 
 func showEnemies(g *Game, opts ebiten.DrawImageOptions, screen *ebiten.Image) {
@@ -201,7 +220,12 @@ func main() {
 				X:   50.0,
 				Y:   50.0,
 			},
-			Health: 3,
+			Vision: &Vision{
+				CanSee:     true,
+				BlinkEvery: 2,
+			},
+			Velocity: 2,
+			Health:   2,
 		},
 		enemies: []*Enemy{
 			{
@@ -210,6 +234,7 @@ func main() {
 					X:   50.0,
 					Y:   150.0,
 				},
+				0.5,
 				true,
 			},
 			{
@@ -218,6 +243,7 @@ func main() {
 					X:   150.0,
 					Y:   50.0,
 				},
+				0.5,
 				true,
 			},
 		},
