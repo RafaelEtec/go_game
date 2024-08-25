@@ -8,11 +8,15 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 type Sprite struct {
-	Img  *ebiten.Image
-	X, Y float64
+	Img        *ebiten.Image
+	X, Y       float64
+	frameOX    int
+	frameOY    int
+	frameCount int
 }
 
 type Vision struct {
@@ -39,6 +43,8 @@ type Potion struct {
 }
 
 type Game struct {
+	count int
+
 	player      *Player
 	enemies     []*Enemy
 	potions     []*Potion
@@ -46,22 +52,79 @@ type Game struct {
 	tilemapImg  *ebiten.Image
 }
 
+const (
+	screenWidth  = 320
+	screenHeight = 240
+
+	frameWidth  = 16
+	frameHeight = 16
+)
+
 func movePlayer(g *Game) {
+	if inpututil.IsKeyJustReleased(ebiten.KeyRight) || inpututil.IsKeyJustReleased(ebiten.KeyD) {
+		g.player.frameCount = 1
+		g.player.frameOX = 48
+		g.player.frameOY = 0
+	}
+
+	if inpututil.IsKeyJustReleased(ebiten.KeyLeft) || inpututil.IsKeyJustReleased(ebiten.KeyA) {
+		g.player.frameCount = 1
+		g.player.frameOX = 32
+		g.player.frameOY = 0
+	}
+
+	if inpututil.IsKeyJustReleased(ebiten.KeyUp) || inpututil.IsKeyJustReleased(ebiten.KeyW) {
+		g.player.frameCount = 1
+		g.player.frameOX = 16
+		g.player.frameOY = 0
+	}
+
+	if inpututil.IsKeyJustReleased(ebiten.KeyDown) || inpututil.IsKeyJustReleased(ebiten.KeyS) {
+		g.player.frameCount = 1
+		g.player.frameOX = 0
+		g.player.frameOY = 0
+	}
+
 	if ebiten.IsKeyPressed(ebiten.KeyRight) || ebiten.IsKeyPressed(ebiten.KeyD) {
 		g.player.X += g.player.Velocity
+		g.player.frameCount = 2
+		g.player.frameOX = 48
+		g.player.frameOY = 16
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyLeft) || ebiten.IsKeyPressed(ebiten.KeyA) {
 		g.player.X -= g.player.Velocity
+		g.player.frameCount = 2
+		g.player.frameOX = 32
+		g.player.frameOY = 16
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyUp) || ebiten.IsKeyPressed(ebiten.KeyW) {
 		g.player.Y -= g.player.Velocity
+		g.player.frameCount = 2
+		g.player.frameOX = 16
+		g.player.frameOY = 16
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyDown) || ebiten.IsKeyPressed(ebiten.KeyS) {
 		g.player.Y += g.player.Velocity
+		g.player.frameCount = 2
+		g.player.frameOX = 0
+		g.player.frameOY = 16
 	}
+}
+
+func showPlayer(g *Game, opts ebiten.DrawImageOptions, screen *ebiten.Image) {
+	opts.GeoM.Translate(g.player.X, g.player.Y)
+	i := (g.count / 8) % g.player.frameCount
+	sx, sy := g.player.frameOX, g.player.frameOY+i*frameWidth
+	screen.DrawImage(
+		g.player.Img.SubImage(
+			image.Rect(sx, sy, sx+frameWidth, sy+frameHeight),
+		).(*ebiten.Image),
+		&opts,
+	)
+	opts.GeoM.Reset()
 }
 
 func followPlayer(g *Game) {
@@ -115,6 +178,7 @@ func showTiles(g *Game, opts ebiten.DrawImageOptions, screen *ebiten.Image) {
 			srcY *= 16
 
 			opts.GeoM.Translate(float64(x), float64(y))
+			//opts.GeoM.Translate(0.0, -(float64(screen.Bounds().Dy()) + 16))
 
 			screen.DrawImage(
 				g.tilemapImg.SubImage(image.Rect(srcX, srcY, srcX+16, srcY+16)).(*ebiten.Image),
@@ -127,38 +191,6 @@ func showTiles(g *Game, opts ebiten.DrawImageOptions, screen *ebiten.Image) {
 
 func darken() {
 
-}
-
-func (g *Game) Update() error {
-	movePlayer(g)
-	followPlayer(g)
-	handlePotion(g)
-	handleClick(g)
-	//darken(g)
-
-	return nil
-}
-
-func (g *Game) Draw(screen *ebiten.Image) {
-	screen.Fill(color.RGBA{55, 38, 35, 255})
-	opts := ebiten.DrawImageOptions{}
-
-	//showTiles(g, opts, screen)
-	showPlayer(g, opts, screen)
-	showPotions(g, opts, screen)
-	showEnemies(g, opts, screen)
-}
-
-func showPlayer(g *Game, opts ebiten.DrawImageOptions, screen *ebiten.Image) {
-	opts.GeoM.Translate(g.player.X, g.player.Y)
-
-	screen.DrawImage(
-		g.player.Img.SubImage(
-			image.Rect(0, 0, 16, 16),
-		).(*ebiten.Image),
-		&opts,
-	)
-	opts.GeoM.Reset()
 }
 
 func showEnemies(g *Game, opts ebiten.DrawImageOptions, screen *ebiten.Image) {
@@ -189,14 +221,33 @@ func showPotions(g *Game, opts ebiten.DrawImageOptions, screen *ebiten.Image) {
 	}
 }
 
-func (g *Game) Layout(outsideWidth, outsideHeight int) (screenWidth, screenHeight int) {
-	return 320, 240
+func (g *Game) Update() error {
+	movePlayer(g)
+	//followPlayer(g)
+	//handlePotion(g)
+	//handleClick(g)
+	//darken(g)
+
+	g.count++
+
+	return nil
+}
+
+func (g *Game) Draw(screen *ebiten.Image) {
+	screen.Fill(color.RGBA{55, 38, 35, 255})
+	opts := ebiten.DrawImageOptions{}
+
+	//showTiles(g, opts, screen)
+	showPlayer(g, opts, screen)
+	//showPotions(g, opts, screen)
+	//showEnemies(g, opts, screen)
+}
+
+func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+	return screenWidth, screenHeight
 }
 
 func main() {
-	ebiten.SetWindowSize(640, 480)
-	ebiten.SetWindowTitle("Give me a name!")
-	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	playerImg, _, err := ebitenutil.NewImageFromFile("assets/images/characters/skeleton.png")
 	if err != nil {
@@ -216,9 +267,12 @@ func main() {
 	game := Game{
 		player: &Player{
 			Sprite: &Sprite{
-				Img: playerImg,
-				X:   50.0,
-				Y:   50.0,
+				Img:        playerImg,
+				X:          50.0,
+				Y:          50.0,
+				frameOX:    0,
+				frameOY:    0,
+				frameCount: 1,
 			},
 			Vision: &Vision{
 				CanSee:     true,
@@ -258,6 +312,10 @@ func main() {
 			},
 		},
 	}
+
+	ebiten.SetWindowSize(screenWidth*2, screenHeight*2)
+	ebiten.SetWindowTitle("Give me a name!")
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 
 	if err := ebiten.RunGame(&game); err != nil {
 		log.Fatal(err)
